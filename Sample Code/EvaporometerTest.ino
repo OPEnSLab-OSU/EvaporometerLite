@@ -1,7 +1,6 @@
-/*******************************************************
-*Code for calibrating load cells and developing a line of  
-*best fit for added weight versus measured digital value
-********************************************************/
+/****************************************************************************************
+*Code for testing load cells to ensure that calculated weight matches true added weight
+****************************************************************************************/
 
 #include <Wire.h> //included for I2C communication
 #include <Adafruit_ADS1015.h> //includes ADS communication for reading loadcell data
