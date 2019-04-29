@@ -1,5 +1,5 @@
 # EvaporometerLite
-This Repository contains all the files needed to recreate the Evaporometer LITE.
+This repository contains all the files needed to recreate the Evaporometer LITE.
 # How to Setup
 Follow assembly guide located in the documentation folder. 
 
