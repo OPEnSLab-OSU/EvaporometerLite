@@ -6,7 +6,7 @@
 
 #define DEBUG 0 //set to 1 to get more Serial out statements
 #define sd 1
-//#define mux1  0x70 //defines the multiplexer address
+#define mux1  0x70 //defines the multiplexer address
 #define num_ports 8 //defines how many ports are on the multiplexer
 #define num_sensors 4 //defines how many sensors are in use
 #define num_mux 1 //defines how many multiplexers are in use
@@ -91,6 +91,7 @@ float tare(Adafruit_ADS1115 ads){
 int count = 0; //variable for selecting from ads array
 
 void setup() {
+  pinMode(13,OUTPUT);
   Serial.begin(9600);
   #if sd
     while(!SD.begin(card_select)){
@@ -119,6 +120,7 @@ void setup() {
 }
 
 void loop() {
+  
   count = 0; 
   for(int i=0; i<num_mux; i++){
     for(int j=0; j<num_sensors; j++){
@@ -142,34 +144,41 @@ void loop() {
   }
   now=rtc.now();
   #if sd
-    data = SD.open("data.txt",FILE_WRITE); //datalogging 
-    count = 0;
-      //prints time data onto sd card
-      data.print("--");
-      data.print(now.month());
-      data.print('/');
-      data.print(now.day());
-      data.print('/');
-      data.print(now.year());
-      data.print(",");
-      data.print(now.hour(), DEC);
-      data.print(':');
-      data.print(now.minute(), DEC);
-      data.print(':');
-      data.print(now.second(), DEC);
-      data.println("--");
-  for(int i=0; i<num_mux; i++){
-    for(int j=0; j<num_sensors; j++){
-      tcaselect(addresses[i],j);
-      data.print("Evaporometer #");
-      data.print(count+1); //prints evaporometer measurements onto sd card
-      data.print(" weight: ");
-      data.println(sensors[count].weight);
-      count++;
+    data = SD.open("evapdata.txt",FILE_WRITE); //datalogging
+    digitalWrite(13,LOW); 
+    if(data){
+      count = 0;
+        //prints time data onto sd card
+        
+        data.print(now.month());
+        data.print('-');
+        data.print(now.day());
+        data.print('-');
+        data.print(now.year());
+        data.print(" ");
+        data.print(now.hour(), DEC);
+        data.print(':');
+        data.print(now.minute(), DEC);
+        data.print(':');
+        data.print(now.second(), DEC);
+       // data.print(",");
+    for(int i=0; i<num_mux; i++){
+      for(int j=0; j<num_sensors; j++){
+        tcaselect(addresses[i],j);
+        //data.print(",");
+       // data.print(count+1); //prints evaporometer measurements onto sd card
+        data.print(",");
+        data.print(sensors[count].weight);
+        count++;
+      }
     }
-  }
-  data.close();
-
+    data.println();
+    data.close();
+    }
+    else{
+      Serial.println("Error opening file");
+      digitalWrite(13,HIGH);
+    }
 /*
   //prints data in an excel friendly way
   data = SD.open("dataExport.txt",FILE_WRITE);
