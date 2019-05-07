@@ -179,34 +179,7 @@ void loop() {
       Serial.println("Error opening file");
       digitalWrite(13,HIGH);
     }
-/*
-  //prints data in an excel friendly way
-  data = SD.open("dataExport.txt",FILE_WRITE);
-  count = 0;
-      //prints time data onto sd card
-      data.print(now.month());
-      data.print('/');
-      data.print(now.day());
-      data.print('/');
-      data.print(now.year());
-      data.print(",");
-      data.print(now.hour(), DEC);
-      data.print(':');
-      data.print(now.minute(), DEC);
-      data.print(':');
-      data.print(now.second(), DEC);
-      data.print(",");
-  for(int i=0; i<num_mux; i++){
-    for(int j=0; j<num_sensors; j++){
-      tcaselect(addresses[i],j);
-      //prints evaporometer measurements onto sd card
-      data.print(sensors[count].weight);
-      count++;
-    }
-  }
-  data.println();
-  data.close();
-  */
+
   #endif
   /*
   data.print("Evap 1 Weight: ");
@@ -215,5 +188,5 @@ void loop() {
   data.close();
 
 */
- delay(2000);
+ delay(300000);
 }
