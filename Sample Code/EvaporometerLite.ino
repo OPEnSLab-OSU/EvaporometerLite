@@ -3,21 +3,30 @@
 #include <SPI.h>
 #include <Adafruit_ADS1015.h>
 #include "RTClib.h"
+#include "Adafruit_SHT31.h"
 
-#define DEBUG 0 //set to 1 to get more Serial out statements
-#define sd 1
+
+/*---------------Define features of the board on or off--------------------*/
+#define DEBUG 1 //set to 1 to get more Serial out statements
+#define sd 1 //write 1 if using sd card dataloggger
+#define SHT 1 //write 1 if using SHT temp/humidity sensor
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------variable definitions-----------------------------*/
 #define mux1  0x70 //defines the multiplexer address
 #define num_ports 8 //defines how many ports are on the multiplexer
-#define num_sensors 4 //defines how many sensors are in use
+#define num_sensors 2 //defines how many sensors are in use
 #define num_mux 1 //defines how many multiplexers are in use
 #define card_select 10 //for SD card and datalogger
 #define slope 19.775 //calculated slope for getting weight values from ADSD1115
+#define delay_time 60000 //set time between measurements in milliseconds
 
 
-
+/*------------------------Class Declarations for Sensors-----------------------------*/
 DateTime now; //sets time
 File data; //declares variable for datalogger
 RTC_PCF8523 rtc; //initializes real time clock
+Adafruit_SHT31 sht31 = Adafruit_SHT31();
 
 
 struct state_ads1115{
@@ -72,7 +81,7 @@ void setup_ads1115(state_ads1115& state_ads){
 float tare(Adafruit_ADS1115 ads){
    float z = 0; //float to store running total for averaging
   int16_t s = 0; //int to store current data value
-  for(int i=0; i<1000; i++){
+  for(int i=0; i<500; i++){
       s=ads.readADC_SingleEnded(0); //read current data value from ADS1115 
       z=z+s; //add current data value to running total for averaging
       #if DEBUG
@@ -82,9 +91,10 @@ float tare(Adafruit_ADS1115 ads){
       #endif
       delay(1); 
   }
-  z=z/1000; //divide z by number of iterations to get average for zeroing out
+  z=z/500; //divide z by number of iterations to get average for zeroing out
  // Serial.print("Z= ");    //debug print statements
   //Serial.println(z);
+  
   return z; //returns the calculated zero value
 }
 
@@ -92,12 +102,35 @@ int count = 0; //variable for selecting from ads array
 
 void setup() {
   pinMode(13,OUTPUT);
+  
+  #if SHT
+  //Serial.println("SHT31 test");
+  if (! sht31.begin(0x44)) {   // Set to 0x45 for alternate i2c addr
+    Serial.println("Couldn't find SHT31");
+    digitalWrite(13,HIGH);
+    while (1) delay(1);
+  }
+  #endif
+  
   Serial.begin(9600);
   #if sd
     while(!SD.begin(card_select)){
       Serial.println("Missing SD Card..."); //error handling for missing/broken SD card
       delay(100);
     }
+    #if DEBUG
+      Serial.println("SD initialized");
+    #endif
+      if(SD.exists("evapdata.txt")){
+          #if DEBUG
+            Serial.println("evapdata.txt already exists, removing file");
+          #endif
+          SD.remove("evapdata.txt");
+          #if DEBUG
+            Serial.println("file has been deleted");
+          #endif
+      }
+        
   #endif
    Wire.begin(); //initializes I2C communication
  // while(!Serial)
@@ -120,6 +153,14 @@ void setup() {
 }
 
 void loop() {
+  #if SHT
+    float temp = sht31.readTemperature();
+    float hmdty = sht31.readHumidity();
+    #if DEBUG
+      Serial.println(temp);
+      Serial.println(hmdty);
+    #endif
+  #endif
   
   count = 0; 
   for(int i=0; i<num_mux; i++){
@@ -143,6 +184,10 @@ void loop() {
     }
   }
   now=rtc.now();
+  #if DEBUG
+    Serial.println("RTC Set");
+  #endif
+  
   #if sd
     data = SD.open("evapdata.txt",FILE_WRITE); //datalogging
     digitalWrite(13,LOW); 
@@ -172,8 +217,23 @@ void loop() {
         count++;
       }
     }
+        #if SHT
+          data.print(",");
+          data.print(temp);
+          data.print(",");
+          data.print(hmdty);
+        #endif
     data.println();
-    data.close();
+    #if DEBUG
+      Serial.println("data in sd buffer");
+    #endif
+    
+    data.close(); //writes data to sd card
+    
+    #if DEBUG
+      Serial.println("data printed to SD card");
+    #endif
+    
     }
     else{
       Serial.println("Error opening file");
@@ -188,5 +248,5 @@ void loop() {
   data.close();
 
 */
- delay(300000);
+ delay(delay_time);
 }
