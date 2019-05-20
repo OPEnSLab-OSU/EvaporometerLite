@@ -1,3 +1,8 @@
+/******************************************************
+ * Evaporometer Lite
+ * Written By Elijah Shumway
+ * 05/20/2019
+ ******************************************************/
 #include <Wire.h>
 #include <SD.h>
 #include <SPI.h>
@@ -7,19 +12,19 @@
 
 
 /*---------------Define features of the board on or off--------------------*/
-#define DEBUG 1 //set to 1 to get more Serial out statements
+#define DEBUG 0 //set to 1 to get more Serial out statements
 #define sd 1 //write 1 if using sd card dataloggger
-#define SHT 1 //write 1 if using SHT temp/humidity sensor
+#define SHT 0 //write 1 if using SHT temp/humidity sensor
 /*-------------------------------------------------------------------------*/
 
 /*-------------------------variable definitions-----------------------------*/
 #define mux1  0x70 //defines the multiplexer address
 #define num_ports 8 //defines how many ports are on the multiplexer
-#define num_sensors 2 //defines how many sensors are in use
+#define num_sensors 3 //defines how many sensors are in use
 #define num_mux 1 //defines how many multiplexers are in use
 #define card_select 10 //for SD card and datalogger
 #define slope 19.775 //calculated slope for getting weight values from ADSD1115
-#define delay_time 60000 //set time between measurements in milliseconds
+#define delay_time 600000 //set time between measurements in milliseconds
 
 
 /*------------------------Class Declarations for Sensors-----------------------------*/
@@ -27,18 +32,30 @@ DateTime now; //sets time
 File data; //declares variable for datalogger
 RTC_PCF8523 rtc; //initializes real time clock
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
+/*-----------------------------------------------------------------------------------*/
 
-
+/*------------------------Evaporometer Struct Declaration----------------------------*/
 struct state_ads1115{
   Adafruit_ADS1115 ads; //initializes ads1115
   bool is_setup = 0; //tells whether the struct has been setup
   float weight; //float for storing current weigt value
   float zero; //float for storing individual zero counts
 };
+/*-----------------------------------------------------------------------------------*/
 
+
+/*------------------------------Array Declarations-----------------------------------*/
 byte addresses[num_mux] = {mux1}; //array for storing mux addresses
 
 state_ads1115 sensors[num_sensors]; //struct array for ADS
+/*------------------------------------------------------------------------------------*/
+
+/*****************************************************************
+ * tcaselect
+ * Selects port on TCA multiplexer for communication
+ * Inputs: TCA multiplexer address, int 0<i<7 for port selection
+ * Outputs: Selects port on multiplexer to communicate with
+ ****************************************************************/
 
 void tcaselect(byte addrs, uint8_t i) {
   if (i > 7 or i < 0){
@@ -54,6 +71,13 @@ void tcaselect(byte addrs, uint8_t i) {
   Wire.endTransmission();  //turns on the port
 }
 
+/*************************************************************************
+ * set_weight
+ * Reads loadcell data from ads1115 and stores into state_ads1115 struct
+ * Inputs: ads1115 struct from array
+ * Outputs: weight value into state_ads1115 struct
+ ************************************************************************/
+
 void set_weight(state_ads1115& state_ads){
   float w = 0;
   float w_ave = 0;
@@ -66,7 +90,12 @@ void set_weight(state_ads1115& state_ads){
   w_ave = w_ave/10;
   state_ads.weight = w_ave; //sets struct weight to calculated weight
 }
-
+/***********************************************************
+ * setup_ads1115
+ * sets up and tares the evaporometer load cell
+ * Inputs: ads1115 struct from array
+ * Outputs: initialized ads1115
+ *********************************************************/
 void setup_ads1115(state_ads1115& state_ads){
   state_ads.ads.begin(); //initializes onboard ADS1115
   state_ads.ads.setGain(GAIN_ONE); 
@@ -77,7 +106,12 @@ void setup_ads1115(state_ads1115& state_ads){
   #endif
   state_ads.is_setup=1;
 }
-
+/*****************************************************************************************
+ * tare
+ * takes an average of 500 readings to calculate an initial average to tare loadcell
+ * Inputs: Adafruit_ADS1115 from state_ads1115 struct
+ * Outputs: Tares loadcell and returns the zero value for storing in state_ads1115 struct
+ ****************************************************************************************/
 float tare(Adafruit_ADS1115 ads){
    float z = 0; //float to store running total for averaging
   int16_t s = 0; //int to store current data value
@@ -101,13 +135,13 @@ float tare(Adafruit_ADS1115 ads){
 int count = 0; //variable for selecting from ads array
 
 void setup() {
-  pinMode(13,OUTPUT);
+  pinMode(13,OUTPUT); //initialize pin for displaying errors
   
   #if SHT
   //Serial.println("SHT31 test");
-  if (! sht31.begin(0x44)) {   // Set to 0x45 for alternate i2c addr
-    Serial.println("Couldn't find SHT31");
-    digitalWrite(13,HIGH);
+  if (! sht31.begin(0x44)) {   //Initializes temperature/humidity sensor
+    Serial.println("Couldn't find SHT31"); 
+    digitalWrite(13,HIGH); //turns LED on if sensor cannot be initialized
     while (1) delay(1);
   }
   #endif
@@ -121,19 +155,24 @@ void setup() {
     #if DEBUG
       Serial.println("SD initialized");
     #endif
+      //Checks if data file exists, and removes it if there is data present for a clean datafile on restart
       if(SD.exists("evapdata.txt")){
+        
           #if DEBUG
             Serial.println("evapdata.txt already exists, removing file");
           #endif
+          
           SD.remove("evapdata.txt");
+           
           #if DEBUG
             Serial.println("file has been deleted");
           #endif
       }
         
   #endif
+  
    Wire.begin(); //initializes I2C communication
- // while(!Serial)
+ 
   
   for(int i=0; i<num_mux; i++){
     for(int j=0; j<num_sensors; j++){
@@ -154,7 +193,7 @@ void setup() {
 
 void loop() {
   #if SHT
-    float temp = sht31.readTemperature();
+    float temp = sht31.readTemperature(); //reads SHT for temperature and humdity data
     float hmdty = sht31.readHumidity();
     #if DEBUG
       Serial.println(temp);
@@ -210,20 +249,19 @@ void loop() {
     for(int i=0; i<num_mux; i++){
       for(int j=0; j<num_sensors; j++){
         tcaselect(addresses[i],j);
-        //data.print(",");
-       // data.print(count+1); //prints evaporometer measurements onto sd card
         data.print(",");
         data.print(sensors[count].weight);
         count++;
       }
     }
-        #if SHT
+        #if SHT //prints temperature and humdity data to SD card
           data.print(",");
           data.print(temp);
           data.print(",");
           data.print(hmdty);
         #endif
     data.println();
+    
     #if DEBUG
       Serial.println("data in sd buffer");
     #endif
@@ -241,12 +279,6 @@ void loop() {
     }
 
   #endif
-  /*
-  data.print("Evap 1 Weight: ");
-  data.println((a.ads.readADC_SingleEnded(0)-a.zero)/19.775);
   
-  data.close();
-
-*/
- delay(delay_time);
+ delay(delay_time); //delays between readings
 }
