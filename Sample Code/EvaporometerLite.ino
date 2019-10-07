@@ -155,20 +155,7 @@ void setup() {
     #if DEBUG
       Serial.println("SD initialized");
     #endif
-      //Checks if data file exists, and removes it if there is data present for a clean datafile on restart
-      if(SD.exists("evapdata.txt")){
-        
-          #if DEBUG
-            Serial.println("evapdata.txt already exists, removing file");
-          #endif
-          
-          SD.remove("evapdata.txt");
-           
-          #if DEBUG
-            Serial.println("file has been deleted");
-          #endif
-      }
-        
+            
   #endif
   
    Wire.begin(); //initializes I2C communication
